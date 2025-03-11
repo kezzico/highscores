@@ -31,30 +31,6 @@ def get_db_connection():
         print(f"Error connecting to MySQL: {e}")
         return None
 
-def init_db():
-    """Initialize the database and create the scores table if it doesn't exist."""
-    connection = get_db_connection()
-    if connection:
-        try:
-            cursor = connection.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS scores (
-                    idscores INT AUTO_INCREMENT PRIMARY KEY,
-                    initials VARCHAR(3) NOT NULL,
-                    score FLOAT NOT NULL,
-                    timestamp DATETIME NOT NULL
-                )
-            """)
-            connection.commit()
-        except Error as e:
-            print(f"Error creating table: {e}")
-        finally:
-            cursor.close()
-            connection.close()
-
-# Initialize database on startup
-init_db()
-
 @app.route('/scores/<game>', methods=['GET'])
 def get_scores(game):
     """Return all scores in plain text format: 'initials,score' per line."""
