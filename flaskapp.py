@@ -31,7 +31,7 @@ def get_db_connection():
         print(f"Error connecting to MySQL: {e}")
         return None
 
-@app.route('/scores/<game>', methods=['GET'])
+@app.route('/<game>', methods=['GET'])
 def get_scores(game):
     """Return all scores in plain text format: 'initials,score' per line."""
     connection = get_db_connection()
@@ -62,7 +62,7 @@ def get_scores(game):
         cursor.close()
         connection.close()
 
-@app.route('/scores/<game>', methods=['POST'])
+@app.route('/<game>', methods=['POST'])
 def submit_score(game):
     """Submit a new score in plain text format: 'INITIALS,SCORE'."""
     try:
