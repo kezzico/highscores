@@ -88,44 +88,56 @@ def get_scores(game):
 
 @app.route('/scores/<game>', methods=['POST'])
 def submit_score(game):
-    """Submit a new score."""
-    data = request.get_json()
-    
-    if not data or 'initials' not in data or 'score' not in data:
-        return {'error': 'Missing initials or score data'}, 400
-    
-    # Validate player initials (assuming 3 characters max)
-    if not isinstance(data['initials'], str) or len(data['initials']) > 3:
-        return {'error': 'Initials must be 3 characters or less'}, 400
-    
-    # Validate score
-    if not isinstance(data['score'], (int, float)) or data['score'] < 0:
-        return {'error': 'Score must be a positive number'}, 400
-    
-    connection = get_db_connection()
-    if not connection:
-        return {'error': 'Database connection failed'}, 500
-
+    """Submit a new score in plain text format: 'INITIALS,SCORE'."""
     try:
-        cursor = connection.cursor()
-        cursor.execute("""
-            INSERT INTO scores (initials, score, timestamp, game)
-            VALUES (%s, %s, %s, %s)
-        """, (
-            data['initials'].upper(),
-            data['score'],
-            datetime.now(),
-            game
-        ))
+        # Get raw text data from request
+        data = request.get_data(as_text=True).strip()
         
-        connection.commit()
-        return {'message': 'Score submitted successfully'}, 201
+        # Split the input into initials and score
+        if ',' not in data:
+            return {'error': 'Invalid format. Expected: INITIALS,SCORE'}, 400
+            
+        initials, score_str = data.split(',', 1)
+        
+        # Validate initials
+        if not isinstance(initials, str) or len(initials) > 3:
+            return {'error': 'Initials must be 3 characters or less'}, 400
+            
+        # Convert and validate score
+        try:
+            score = float(score_str)
+            if score < 0:
+                return {'error': 'Score must be a positive number'}, 400
+        except ValueError:
+            return {'error': 'Score must be a valid number'}, 400
+        
+        connection = get_db_connection()
+        if not connection:
+            return {'error': 'Database connection failed'}, 500
 
-    except Error as e:
-        return {'error': f'Database error: {str(e)}'}, 500
-    finally:
-        cursor.close()
-        connection.close()
+        try:
+            cursor = connection.cursor()
+            cursor.execute("""
+                INSERT INTO scores (initials, score, timestamp, game)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                initials.upper(),
+                score,
+                datetime.now(),
+                game
+            ))
+            
+            connection.commit()
+            return {'message': 'Score submitted successfully'}, 201
+
+        except Error as e:
+            return {'error': f'Database error: {str(e)}'}, 500
+        finally:
+            cursor.close()
+            connection.close()
+            
+    except Exception as e:
+        return {'error': f'Invalid request: {str(e)}'}, 400
 
 @app.route("/health")
 def index():
