@@ -33,7 +33,7 @@ def get_db_connection():
 
 @app.route('/<game>', methods=['GET'])
 def get_scores(game):
-    """Return all scores in plain text format: 'initials,score' per line."""
+    """Return top 10 scores in plain text format: 'initials,score' per line."""
     connection = get_db_connection()
     if not connection:
         return {'error': 'Database connection failed'}, 500
@@ -45,6 +45,7 @@ def get_scores(game):
             FROM scores 
             WHERE game = %s
             ORDER BY score DESC
+            LIMIT 10
         """, (game,))
         
         # Build plain text response with one score per line
@@ -68,6 +69,9 @@ def submit_score(game):
     try:
         # Get raw text data from request
         data = request.get_data(as_text=True).strip()
+        
+        # Get client IP address
+        ip_addr = request.remote_addr
         
         # Split the input into initials and score
         if ',' not in data:
@@ -94,13 +98,14 @@ def submit_score(game):
         try:
             cursor = connection.cursor()
             cursor.execute("""
-                INSERT INTO scores (initials, score, timestamp, game)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO scores (initials, score, timestamp, game, ip_addr)
+                VALUES (%s, %s, %s, %s, %s)
             """, (
                 initials.upper(),
                 score,
                 datetime.now(),
-                game
+                game,
+                ip_addr
             ))
             
             connection.commit()
