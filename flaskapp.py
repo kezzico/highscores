@@ -33,7 +33,7 @@ def get_db_connection():
 
 @app.route('/<game>', methods=['GET'])
 def get_scores(game):
-    """Return top 10 scores in plain text format: 'initials,score' per line."""
+    """Return top 10 scores in plain text format: 'initials,score,color' per line."""
     connection = get_db_connection()
     if not connection:
         return {'error': 'Database connection failed'}, 500
@@ -41,17 +41,17 @@ def get_scores(game):
     try:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT initials, score, timestamp 
+            SELECT initials, score, color, timestamp 
             FROM scores 
             WHERE game = %s
             ORDER BY score DESC
-            LIMIT 10
+            LIMIT 100
         """, (game,))
         
         # Build plain text response with one score per line
         output_lines = []
-        for (initials, score, timestamp) in cursor:
-            output_lines.append(f"{initials},{score}")
+        for (initials, score, color, timestamp) in cursor:
+            output_lines.append(f"{initials},{score},{color}")
         
         response = make_response('\n'.join(output_lines))
         response.headers["Content-type"] = "text/plain"
@@ -65,7 +65,7 @@ def get_scores(game):
 
 @app.route('/<game>', methods=['POST'])
 def submit_score(game):
-    """Submit a new score in plain text format: 'INITIALS,SCORE'."""
+    """Submit a new score in plain text format: 'INITIALS,SCORE,COLOR'."""
     try:
         # Get raw text data from request
         data = request.get_data(as_text=True).strip()
@@ -73,11 +73,13 @@ def submit_score(game):
         # Get client IP address
         ip_addr = request.remote_addr
         
-        # Split the input into initials and score
-        if ',' not in data:
-            return {'error': 'Invalid format. Expected: INITIALS,SCORE'}, 400
+        # Split the input into initials, score, and optional color
+        parts = data.split(',')
+        if len(parts) < 2 or len(parts) > 3:
+            return {'error': 'Invalid format. Expected: INITIALS,SCORE[,COLOR]'}, 400
             
-        initials, score_str = data.split(',', 1)
+        initials, score_str = parts[0], parts[1]
+        color = int(parts[2], 16) if len(parts) == 3 else 0x808080  # Default color
         
         # Validate initials
         if not isinstance(initials, str) or len(initials) > 3:
@@ -98,11 +100,12 @@ def submit_score(game):
         try:
             cursor = connection.cursor()
             cursor.execute("""
-                INSERT INTO scores (initials, score, timestamp, game, ip_addr)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO scores (initials, score, color, timestamp, game, ip_addr)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (
                 initials.upper(),
                 score,
+                color,
                 datetime.now(),
                 game,
                 ip_addr
